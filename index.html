@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detección de Arsénico en Agua Potable – Chihuahua</title>
+
+  <!-- Leaflet y plugins -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-minimap/dist/Control.MiniMap.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-compass/dist/leaflet-compass.min.css" />
+
+  <style>
+    #map { height: 100vh; width: 100%; }
+    #titulo-mapa { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 1000; background: rgba(255, 255, 255, 0.85); padding: 6px 12px; border-radius: 6px; font-family: sans-serif; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
+    #titulo-mapa h2 { margin: 0; font-size: 18px; text-align: center; }
+    #logos { position: absolute; bottom: 10px; left: 10px; z-index: 1000; background: rgba(255,255,255,0.8); padding: 4px 6px; border-radius: 5px; display: flex; gap: 8px; align-items: center; box-shadow: 0 0 4px rgba(0,0,0,0.3); }
+    #logos img { height: 45px; max-width: 60px; object-fit: contain; }
+    .info-box { background: white; padding:8px; border-radius:5px; box-shadow:0 0 6px rgba(0,0,0,0.3); font-size:13px; font-family: sans-serif; }
+    .legend { background: white; padding: 10px; border-radius: 5px; font-size: 13px; color: #333; box-shadow: 0 0 6px rgba(0,0,0,0.3); }
+    .legend span { display:inline-block; width:12px; height:12px; margin-right:6px; border-radius:50%; }
+    .color-rojo { background:red; }
+    .color-azul { background:blue; }
+    .color-verde { background:green; }
+    .zona-label { font-size:14px; color:#000; background:rgba(255,255,255,0.7); padding:2px 6px; border-radius:4px; pointer-events:none; }
+    @media (max-width: 768px) { #titulo-mapa h2 { font-size: 14px; } #logos img { height: 32px; } .info-box, .legend { font-size: 12px; } }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="titulo-mapa"><h2>Detección de Arsénico en Agua Potable – Chihuahua</h2></div>
+  <div id="logos">
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQNnAS26nhdsMEyTqi1ccXa-kG_eiqIwBGcSg&s" alt="Logo FCQ/UACH">
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTuQUMI6FVsjhpfo4kR4pnQy1eG0HTLlgyviA&s" alt="CIMAV">
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-minimap/dist/Control.MiniMap.min.js"></script>
+  <script src="https://unpkg.com/leaflet-compass/dist/leaflet-compass.min.js"></script>
+
+  <script>
+    const capa1 = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', { attribution: '&copy; Stadia Maps, OpenStreetMap contributors', maxZoom: 18 });
+    const capa2 = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+    const capa3 = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png');
+    const capaEsriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+    const capaEsriTopo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+    const capaCartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CartoDB' });
+    const capaCartoDark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CartoDB' });
+
+    const map = L.map('map', {
+      center: [28.67, -106.1],
+      zoom: 11,
+      layers: [capa1]
+    });
+
+    new L.Control.MiniMap(capa2, { toggleDisplay: true, minimized: false, position: 'bottomleft' }).addTo(map);
+    L.control.scale().addTo(map);
+
+    const infoControl = L.control({ position: 'topright' });
+    infoControl.onAdd = () => {
+      const div = L.DomUtil.create('div', 'info-box');
+      div.innerHTML = '<b>Información del punto:</b><br><div id="info-texto">Selecciona un punto en el mapa.</div>';
+      return div;
+    };
+    infoControl.addTo(map);
+
+    const puntos = [
+      { nombre: 'A-01', grupo: 'A', lat: 28.7356, lng: -106.124055, extra: 'En este punto se tomaron 3 muestras más.' },
+      { nombre: 'A-02', grupo: 'A', lat: 28.73836, lng: -106.13267 },
+      { nombre: 'A-03', grupo: 'A', lat: 28.74376, lng: -106.132388 },
+      { nombre: 'B-04', grupo: 'B', lat: 28.66911, lng: -106.112844 },
+      { nombre: 'B-05', grupo: 'B', lat: 28.65202, lng: -106.138525 },
+      { nombre: 'B-06', grupo: 'B', lat: 28.66207, lng: -106.127324 },
+      { nombre: 'C-07', grupo: 'C', lat: 28.64531, lng: -106.02162 },
+      { nombre: 'C-08', grupo: 'C', lat: 28.62303, lng: -106.01914 },
+      { nombre: 'C-09', grupo: 'C', lat: 28.62859, lng: -106.02545 }
+    ];
+
+    const colores = { 'A': 'red', 'B': 'blue', 'C': 'green' };
+    puntos.forEach(p => {
+      const marker = L.circleMarker([p.lat, p.lng], { radius: 8, color: colores[p.grupo], fillOpacity: 0.5 })
+        .addTo(map)
+        .bindPopup(`<b>${p.nombre}</b><br>Lat: ${p.lat.toFixed(5)}<br>Lng: ${p.lng.toFixed(5)}<br>${p.extra || ''}`);
+
+      marker.on('click', () => {
+        document.getElementById('info-texto').innerHTML = `<b>${p.nombre}</b><br>${p.extra || 'Sin información adicional.'}<br>Lat: ${p.lat}, Lng: ${p.lng}`;
+      });
+    });
+
+    const zonas = [
+      { nombre: 'Zona A', lat: 28.7399, lng: -106.1297, offsetLat: 0.015, color: 'red' },
+      { nombre: 'Zona B', lat: 28.658611, lng: -106.125556, offsetLat: 0.012, color: 'blue' },
+      { nombre: 'Zona C', lat: 28.6323, lng: -106.0221, offsetLat: -0.015, color: 'green' }
+    ];
+
+    zonas.forEach(z => {
+      L.circle([z.lat, z.lng], { radius: 2000, color: z.color, fillOpacity: 0, dashArray: '5, 5', weight: 2 }).addTo(map);
+      L.marker([z.lat + z.offsetLat, z.lng], {
+        icon: L.divIcon({ className: 'zona-label', html: `<b>${z.nombre}</b>` })
+      }).addTo(map);
+    });
+
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = () => {
+      const div = L.DomUtil.create('div', 'legend');
+      div.innerHTML = '<strong>Leyenda</strong><br>' +
+        '<span class="color-rojo"></span> Zona A (Norte)<br>' +
+        '<span class="color-azul"></span> Zona B (Centro)<br>' +
+        '<span class="color-verde"></span> Zona C (Sur)<br>';
+      return div;
+    };
+    legend.addTo(map);
+
+    const baseMaps = {
+      'Stadia Claro': capa1,
+      'OpenStreetMap': capa2,
+      'Stadia Oscuro': capa3,
+      'Esri Satélite': capaEsriSat,
+      'Esri Topográfico': capaEsriTopo,
+      'Carto Light': capaCartoLight,
+      'Carto Dark': capaCartoDark
+    };
+
+    L.control.layers(baseMaps, null, { collapsed: false, position: 'topright' }).addTo(map);
+
+  </script>
+</body>
+</html>
